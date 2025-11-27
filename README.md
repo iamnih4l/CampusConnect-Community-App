@@ -3,7 +3,6 @@
 
 <div align="center">
 
-![Banner](https://via.placeholder.com/1200x250?text=Campus+Connect+%7C+AI+Community+Platform)
 
 
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square)]()
