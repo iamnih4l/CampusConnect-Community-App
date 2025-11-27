@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CampusConnect</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f8fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #1DA1F2;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        nav button {
+            margin-left: 10px;
+            background-color: white;
+            color: #1DA1F2;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 20px auto;
+            padding: 0 10px;
+        }
+
+        .feed-toggle button {
+            margin-right: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: 1px solid #1DA1F2;
+            background-color: white;
+            color: #1DA1F2;
+            font-weight: bold;
+        }
+
+        .feed-toggle button.active {
+            background-color: #1DA1F2;
+            color: white;
+        }
+
+        .post-form {
+            background-color: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .post-form textarea {
+            width: 100%;
+            height: 60px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            resize: vertical;
+        }
+
+        .post {
+            background-color: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .post img {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .post-footer {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .post-footer button {
+            border: none;
+            background-color: transparent;
+            cursor: pointer;
+            color: #1DA1F2;
+            font-weight: bold;
+        }
+
+        .comments {
+            margin-top: 10px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        .comments div {
+            margin-bottom: 5px;
+        }
+
+        .comment-form input {
+            width: 80%;
+            padding: 5px;
+        }
+
+        .comment-form button {
+            padding: 5px 10px;
+            cursor: pointer;
+            background-color: #1DA1F2;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>CampusConnect</h1>
+        <nav>
+            <button onclick="alert('Go to Profile')">Profile</button>
+            <button onclick="alert('Go to Communities')">Communities</button>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- Post Form -->
+        <div class="post-form">
+            <h3>Create Post</h3>
+            <textarea id="postContent" placeholder="What's happening?"></textarea><br>
+            <input type="file" id="postImage"><br><br>
+            <select id="feedType">
+                <option value="college">College Feed</option>
+                <option value="global">Global Feed</option>
+            </select>
+            <button onclick="createPost()">Post</button>
+        </div>
+
+        <!-- Feed Toggle -->
+        <div class="feed-toggle">
+            <button id="collegeBtn" class="active" onclick="loadFeed('college')">College Feed</button>
+            <button id="globalBtn" onclick="loadFeed('global')">Global Feed</button>
+        </div>
+
+        <!-- Feed Container -->
+        <div id="feed"></div>
+    </div>
+
+    <script>
+        const feedContainer = document.getElementById('feed');
+        let currentFeed = 'college';
+
+        async function createPost() {
+            const content = document.getElementById('postContent').value;
+            const feedType = document.getElementById('feedType').value;
+            const postImage = document.getElementById('postImage').files[0];
+
+            if (!content && !postImage) {
+                alert("Post content or image required!");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("username", "User123"); // Replace with logged-in user
+            formData.append("content", content);
+            formData.append("feed_type", feedType);
+            if (postImage) formData.append("post_image", postImage);
+
+            const res = await fetch("http://127.0.0.1:8000/create-post/", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('postContent').value = "";
+                document.getElementById('postImage').value = "";
+                loadFeed(feedType);
+            }
+        }
+
+        async function loadFeed(feedType) {
+            currentFeed = feedType;
+            document.getElementById('collegeBtn').classList.toggle('active', feedType==='college');
+            document.getElementById('globalBtn').classList.toggle('active', feedType==='global');
+
+            const res = await fetch(`http://127.0.0.1:8000/get-feed/?feed_type=${feedType}`);
+            const data = await res.json();
+            feedContainer.innerHTML = "";
+
+            data.feed.forEach(post => {
+                const postDiv = document.createElement('div');
+                postDiv.classList.add('post');
+                postDiv.innerHTML = `
+                    <div><strong>${post.username}</strong> <small>${post.time}</small></div>
+                    <div>${post.content}</div>
+                    ${post.image ? `<img src="${post.image}" />` : ""}
+                    <div class="post-footer">
+                        <button onclick="likePost('${post.id}')">Like (${post.likes})</button>
+                        <button onclick="showCommentForm('${post.id}')">Comment</button>
+                        <button onclick="summarizePost('${post.id}', '${post.content.replace(/'/g,"\\'")}')">Summarize</button>
+                    </div>
+                    <div class="comments" id="comments-${post.id}"></div>
+                    <div class="comment-form" id="comment-form-${post.id}" style="display:none;">
+                        <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." />
+                        <button onclick="addComment('${post.id}')">Post</button>
+                    </div>
+                `;
+                feedContainer.appendChild(postDiv);
+            });
+        }
+
+        function showCommentForm(postId) {
+            const form = document.getElementById(`comment-form-${postId}`);
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addComment(postId) {
+            const input = document.getElementById(`comment-input-${postId}`);
+            const commentText = input.value.trim();
+            if (!commentText) return;
+            const commentsDiv = document.getElementById(`comments-${postId}`);
+            const div = document.createElement('div');
+            div.textContent = "User123: " + commentText;
+            commentsDiv.appendChild(div);
+            input.value = "";
+        }
+
+        function likePost(postId) {
+            alert("Like functionality works on backend update. For demo, likes not persisted.");
+        }
+
+        async function summarizePost(postId, text) {
+            const res = await fetch("http://127.0.0.1:8000/summarize/", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({text})
+            });
+            const data = await res.json();
+            alert("Summary: " + data.summary);
+        }
+
+        // Load initial feed
+        loadFeed('college');
+    </script>
+    <!-- Chatbot Button -->
+<button id="chatbot-btn" style="position:fixed;bottom:20px;right:20px;padding:12px 20px;background:#4f46e5;color:white;border:none;border-radius:50px;cursor:pointer;z-index:1000;font-weight:bold;box-shadow:0 4px 8px rgba(0,0,0,0.2);">
+    💬 Chatbot
+</button>
+
+<!-- Chat Window -->
+<div id="chat-window" style="display:none;position:fixed;bottom:70px;right:20px;width:350px;height:450px;background:white;border:1px solid #ccc;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,0.3);z-index:1000;display:flex;flex-direction:column;overflow:hidden;font-family:sans-serif;">
+    <div id="chat-header" style="background:#4f46e5;color:white;padding:12px;border-top-left-radius:12px;border-top-right-radius:12px;font-weight:bold;font-size:16px;display:flex;justify-content:space-between;align-items:center;">
+        CampusConnect Chatbot
+        <span id="close-chat" style="cursor:pointer;font-weight:bold;">✖</span>
+    </div>
+    <div id="chat-output" style="flex:1;padding:10px;overflow-y:auto;background:#f9f9f9;"></div>
+    <div style="display:flex;border-top:1px solid #ccc;">
+        <input id="chat-input" type="text" placeholder="Type a message..." style="flex:1;padding:10px;border:none;font-size:14px;">
+        <button id="send-btn" style="padding:0 16px;background:#4f46e5;color:white;border:none;cursor:pointer;font-weight:bold;">Send</button>
+    </div>
+</div>
+
+<script>
+const chatbotBtn = document.getElementById("chatbot-btn");
+const chatWindow = document.getElementById("chat-window");
+const chatOutput = document.getElementById("chat-output");
+const chatInput = document.getElementById("chat-input");
+const sendBtn = document.getElementById("send-btn");
+const closeChat = document.getElementById("close-chat");
+
+// Toggle chat window
+chatbotBtn.addEventListener("click", () => {
+    chatWindow.style.display = chatWindow.style.display === "none" ? "flex" : "none";
+});
+closeChat.addEventListener("click", () => chatWindow.style.display = "none");
+
+// Helper to format timestamp
+function formatTime(date = new Date()) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// Append chat message with bubble style
+function appendMessage(sender, text) {
+    const msgWrapper = document.createElement("div");
+    msgWrapper.style.display = "flex";
+    msgWrapper.style.marginBottom = "10px";
+    msgWrapper.style.justifyContent = sender === "You" ? "flex-end" : "flex-start";
+
+    const bubble = document.createElement("div");
+    bubble.style.maxWidth = "70%";
+    bubble.style.padding = "8px 12px";
+    bubble.style.borderRadius = "16px";
+    bubble.style.fontSize = "14px";
+    bubble.style.lineHeight = "1.4";
+    bubble.style.background = sender === "You" ? "#4f46e5" : "#e5e5ea";
+    bubble.style.color = sender === "You" ? "white" : "black";
+    bubble.style.wordBreak = "break-word";
+
+    bubble.innerHTML = `<strong>${sender}</strong>: ${text} <span style="font-size:10px;opacity:0.6;float:right;">${formatTime()}</span>`;
+
+    msgWrapper.appendChild(bubble);
+    chatOutput.appendChild(msgWrapper);
+    chatOutput.scrollTop = chatOutput.scrollHeight;
+}
+
+// Send message to backend
+async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+
+    appendMessage("You", message);
+    chatInput.value = "";
+
+    try {
+        const response = await fetch("http://127.0.0.1:8000/chat/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user: "anonymous", message })
+        });
+
+        const data = await response.json();
+        appendMessage("Bot", data.reply);
+    } catch (err) {
+        appendMessage("Bot", "Error connecting to server.");
+        console.error(err);
+    }
+}
+
+// Send on button click or Enter key
+sendBtn.addEventListener("click", sendMessage);
+chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+</script>
+
+</body>
+</html>

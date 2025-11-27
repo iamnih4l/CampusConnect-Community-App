@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>CampusConnect — Chatbot</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f5f8fa; margin:0; }
+    header { background:#1DA1F2; color:white; padding:12px 16px; }
+    .container { max-width:900px; margin:20px auto; padding:16px; }
+    .chat-window { background:white; border-radius:8px; padding:12px; height:70vh; overflow:auto; box-shadow:0 2px 6px rgba(0,0,0,0.08); }
+    .message { margin:8px 0; display:flex; }
+    .message.user { justify-content:flex-end; }
+    .bubble { max-width:72%; padding:10px 12px; border-radius:12px; }
+    .bubble.user { background:#1DA1F2; color:white; border-bottom-right-radius:4px; }
+    .bubble.bot { background:#eef3fb; color:#111; border-bottom-left-radius:4px; }
+    .controls { display:flex; margin-top:10px; gap:8px; }
+    textarea { flex:1; padding:8px; min-height:48px; border-radius:8px; border:1px solid #ddd; resize:none; }
+    button { background:#1DA1F2; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
+    .context-list { margin-top:12px; font-size:13px; color:#555; }
+    .small { font-size:12px; color:#777; }
+  </style>
+</head>
+<body>
+  <header><h2>CampusConnect Assistant</h2></header>
+  <div class="container">
+    <div class="chat-window" id="chatWindow"></div>
+
+    <div class="controls">
+      <textarea id="messageInput" placeholder="Ask for help about campus events, projects, or feed content..."></textarea>
+      <button id="sendBtn">Send</button>
+    </div>
+
+    <div class="small">Tip: This assistant can use community posts as context. Ask things like "Who is looking for hackathon partners?" or "Summarize recent AI posts".</div>
+  </div>
+
+  <script>
+    const chatWindow = document.getElementById('chatWindow');
+    const input = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function appendMessage(text, sender='bot') {
+      const msg = document.createElement('div');
+      msg.className = 'message ' + (sender === 'user' ? 'user':'bot');
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble ' + (sender === 'user' ? 'user' : 'bot');
+      bubble.innerText = text;
+      msg.appendChild(bubble);
+      chatWindow.appendChild(msg);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+      appendMessage(text, 'user');
+      input.value = '';
+      appendMessage('Thinking...', 'bot');
+      // call backend
+      try {
+        const res = await fetch('http://127.0.0.1:8000/chat/', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ user: 'User123', message: text })
+        });
+        const data = await res.json();
+        // remove 'Thinking...' placeholder (last bot message)
+        const botMsgs = document.querySelectorAll('.message.bot .bubble');
+        if (botMsgs.length) {
+          const last = botMsgs[botMsgs.length-1];
+          if (last && last.innerText === 'Thinking...') last.parentElement.remove();
+        }
+        // append reply
+        appendMessage(data.reply, 'bot');
+
+        // show contexts used (optional)
+        if (data.contexts && data.contexts.length) {
+          const ctxDiv = document.createElement('div');
+          ctxDiv.className = 'context-list';
+          ctxDiv.innerHTML = '<strong>Contexts used:</strong><br/>' + data.contexts.map((c,i) => 
+            `${i+1}. <em>${c.username}</em>: ${c.content.slice(0,120)}${c.content.length>120?'...':''}`
+          ).join('<br/>');
+          chatWindow.appendChild(ctxDiv);
+          chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+      } catch (err) {
+        console.error(err);
+        appendMessage('Error contacting assistant. Check backend.', 'bot');
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>

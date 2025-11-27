@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CampusConnect - Sign Up</title>
+    <style>
+        /* Reset & Base */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f5f8fa; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+
+        /* Card Container */
+        .card {
+            background-color: #fff;
+            padding: 40px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 400px;
+            text-align: center;
+        }
+
+        h2 { color: #1d9bf0; margin-bottom: 20px; }
+
+        input[type="text"], input[type="password"], input[type="file"] {
+            width: 100%;
+            padding: 12px 15px;
+            margin: 10px 0 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.2s ease-in-out;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            border-color: #1d9bf0;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border: none;
+            border-radius: 8px;
+            background-color: #1d9bf0;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s ease-in-out;
+        }
+
+        button:hover { background-color: #0d8ddb; }
+
+        video { border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; }
+
+        p { font-weight: bold; margin-top: 10px; }
+
+        small { display: block; margin-top: 15px; color: #555; }
+        small a { color: #1d9bf0; text-decoration: none; }
+        small a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>CampusConnect Sign Up</h2>
+
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+
+    <label>Upload Profile Image (optional):</label>
+    <input type="file" id="profileImage">
+    <p id="imageResult"></p>
+
+    <h3>Verify via Webcam</h3>
+    <video id="video" width="350" height="250" autoplay></video>
+    <button id="verifyBtn">Verify Face</button>
+    <p id="webcamResult"></p>
+
+    <button id="signupBtn">Sign Up</button>
+    <small>Already have an account? <a href="login.html">Login</a></small>
+</div>
+
+<script>
+const video = document.getElementById("video");
+const verifyBtn = document.getElementById("verifyBtn");
+const webcamResult = document.getElementById("webcamResult");
+const profileImage = document.getElementById("profileImage");
+const imageResult = document.getElementById("imageResult");
+const signupBtn = document.getElementById("signupBtn");
+
+// Start webcam
+navigator.mediaDevices.getUserMedia({ video: true })
+.then(stream => video.srcObject = stream)
+.catch(err => console.error("Webcam error:", err));
+
+// Send image to backend for verification
+async function verifyFaceFile(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch('http://127.0.0.1:8000/verify-face/', { method: 'POST', body: formData });
+    return await res.json();
+}
+
+// Profile image verification
+profileImage.addEventListener('change', async () => {
+    const file = profileImage.files[0];
+    if (!file) return;
+    const data = await verifyFaceFile(file);
+    imageResult.textContent = data.message;
+    imageResult.style.color = data.verified ? "green" : "red";
+});
+
+// Webcam verification
+verifyBtn.addEventListener('click', async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+    const data = await verifyFaceFile(blob);
+    webcamResult.textContent = data.message;
+    webcamResult.style.color = data.verified ? "green" : "red";
+});
+
+// Sign up
+signupBtn.addEventListener('click', async () => {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    if (!username || !password) { alert("Fill username & password"); return; }
+
+    const profileFile = profileImage.files[0];
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const webcamBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+
+    const formData = new FormData();
+    formData.append("username", username);
+    formData.append("password", password);
+    formData.append("webcam_image", webcamBlob, "webcam.jpg");
+    if (profileFile) formData.append("profile_image", profileFile);
+
+    try {
+        const res = await fetch("http://127.0.0.1:8000/signup/", { method: "POST", body: formData });
+        const data = await res.json();
+        if (data.success) { alert(data.message); window.location.href = "login.html"; } 
+        else alert(data.message);
+    } catch (err) { console.error(err); alert("Error signing up!"); }
+});
+</script>
+
+</body>
+</html>

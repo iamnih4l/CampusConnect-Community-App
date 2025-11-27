@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CampusConnect - Login</title>
+    <style>
+        body {
+            background-color: #f5f8fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .card {
+            background-color: #fff;
+            padding: 40px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 400px;
+            text-align: center;
+        }
+
+        h2 { color: #1d9bf0; margin-bottom: 20px; }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            margin: 10px 0 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.2s ease-in-out;
+        }
+
+        input:focus { border-color: #1d9bf0; }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border: none;
+            border-radius: 8px;
+            background-color: #1d9bf0;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s ease-in-out;
+        }
+
+        button:hover { background-color: #0d8ddb; }
+
+        video { border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; }
+
+        p { font-weight: bold; margin-top: 10px; }
+
+        small { display: block; margin-top: 15px; color: #555; }
+        small a { color: #1d9bf0; text-decoration: none; }
+        small a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>CampusConnect Login</h2>
+    <form id="loginForm">
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="password" placeholder="Password" required>
+        
+        <h3>Verify via Webcam</h3>
+        <video id="video" width="350" height="250" autoplay></video>
+        
+        <button type="submit">Login</button>
+    </form>
+    <p id="message"></p>
+    <small>Don't have an account? <a href="signup.html">Sign Up</a></small>
+</div>
+
+<script>
+const video = document.getElementById("video");
+const loginForm = document.getElementById("loginForm");
+const message = document.getElementById("message");
+
+// Start webcam
+navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => video.srcObject = stream)
+    .catch(err => console.error(err));
+
+loginForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+
+    const formData = new FormData();
+    formData.append("username", document.getElementById("username").value);
+    formData.append("password", document.getElementById("password").value);
+    formData.append("file", blob, "webcam.jpg");
+
+    try {
+        const res = await fetch("http://127.0.0.1:8000/login/", { method: "POST", body: formData });
+        const data = await res.json();
+        message.textContent = data.message;
+        message.style.color = data.success ? "green" : "red";
+        if (data.success) setTimeout(() => window.location.href = "community.html", 2000);
+    } catch(err) {
+        console.error(err);
+        message.textContent = "Error logging in!";
+        message.style.color = "red";
+    }
+});
+</script>
+
+</body>
+</html>
