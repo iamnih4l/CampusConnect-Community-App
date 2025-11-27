@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Profile</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f8fa;
+        margin: 0;
+        padding: 0;
+    }
+
+    header {
+        background-color: #1DA1F2;
+        color: white;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    header h1 {
+        margin: 0;
+    }
+
+    nav button {
+        margin-left: 10px;
+        background-color: white;
+        color: #1DA1F2;
+        border: none;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+
+    .container {
+        max-width: 700px;
+        margin: 20px auto;
+        padding: 0 10px;
+    }
+
+    .profile-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+
+    .profile-card img {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 15px;
+    }
+
+    .profile-card h2 {
+        margin: 5px 0;
+    }
+
+    .profile-card p {
+        margin: 5px 0;
+        color: #555;
+    }
+
+    .edit-form {
+        background-color: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        margin-top: 20px;
+    }
+
+    .edit-form input, .edit-form textarea {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 8px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+    }
+
+    .edit-form button {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-radius: 5px;
+        border: none;
+        font-weight: bold;
+        background-color: #1DA1F2;
+        color: white;
+    }
+
+    .back-home {
+        margin-top: 20px;
+        padding: 10px 15px;
+        border-radius: 5px;
+        border: none;
+        font-weight: bold;
+        background-color: white;
+        color: #1DA1F2;
+        cursor: pointer;
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>CampusConnect</h1>
+    <nav>
+        <button onclick="window.location.href='community.html'">Home</button>
+    </nav>
+</header>
+
+<div class="container">
+    <div class="profile-card">
+        <img id="profilePic" src="" alt="Profile Picture">
+        <h2 id="username">Username</h2>
+        <p><strong>Interests:</strong> <span id="interestsDisplay"></span></p>
+        <p><strong>Skills:</strong> <span id="skillsDisplay"></span></p>
+        <p><strong>Achievements:</strong> <span id="achievementsDisplay"></span></p>
+    </div>
+
+    <div class="edit-form">
+        <h3>Edit Profile</h3>
+        <form id="editProfileForm">
+            <label>Profile Picture:</label>
+            <input type="file" id="profileImage" name="profile_image">
+
+            <label>Interests (comma-separated):</label>
+            <input type="text" id="interests" name="interests">
+
+            <label>Skills (comma-separated):</label>
+            <input type="text" id="skills" name="skills">
+
+            <label>Achievements:</label>
+            <textarea id="achievements" name="achievements" rows="4"></textarea>
+
+            <button type="submit">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<script>
+const username = "User123";  // Replace with logged-in username
+
+async function loadProfile() {
+    const res = await fetch(`/profile/${username}`);
+    const data = await res.json();
+    if(data.success){
+        document.getElementById("username").textContent = data.username;
+        document.getElementById("interestsDisplay").textContent = data.interests || "None";
+        document.getElementById("skillsDisplay").textContent = data.skills || "None";
+        document.getElementById("achievementsDisplay").textContent = data.achievements || "None";
+
+        document.getElementById("interests").value = data.interests || "";
+        document.getElementById("skills").value = data.skills || "";
+        document.getElementById("achievements").value = data.achievements || "";
+
+        if(data.profile_pic){
+            const imgName = data.profile_pic.split("/").pop();
+            document.getElementById("profilePic").src = `/profile-image/${imgName}`;
+        }
+    }
+}
+
+// Handle profile update
+document.getElementById("editProfileForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append("username", username);
+    formData.append("interests", document.getElementById("interests").value);
+    formData.append("skills", document.getElementById("skills").value);
+    formData.append("achievements", document.getElementById("achievements").value);
+
+    const fileInput = document.getElementById("profileImage");
+    if(fileInput.files.length > 0){
+        formData.append("profile_image", fileInput.files[0]);
+    }
+
+    const res = await fetch("/profile/update/", {
+        method: "POST",
+        body: formData
+    });
+    const data = await res.json();
+    alert(data.message);
+    loadProfile();
+});
+
+// Back to home
+document.getElementById("backHome").addEventListener("click", ()=>{
+    window.location.href = "/"; // Set this to your homepage
+});
+
+loadProfile();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Community Hub - CampusConnect</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f8fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #1DA1F2;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        header button {
+            background-color: white;
+            color: #1DA1F2;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 10px;
+        }
+
+        .community {
+            background-color: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+
+        .community h3 {
+            margin: 0 0 5px 0;
+        }
+
+        .community button {
+            background-color: #1DA1F2;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .section-title {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .post-form textarea, .post-form input[type=text] {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .post-form button {
+            background-color: #1DA1F2;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Community Hub</h1>
+        <button onclick="window.location.href='community.html'">Home</button>
+    </header>
+
+    <div class="container">
+        <div class="section-title">Recommended for you</div>
+        <div id="recommended-communities"></div>
+
+        <div class="section-title">All Communities</div>
+        <div id="all-communities"></div>
+
+        <div class="section-title">Create a New Community</div>
+        <div class="post-form">
+            <input type="text" id="community-name" placeholder="Community Name"><br>
+            <textarea id="community-desc" placeholder="Description"></textarea><br>
+            <button onclick="createCommunity()">Create</button>
+        </div>
+    </div>
+
+    <script>
+        const username = "User123"; // Replace with logged-in username
+
+        async function loadCommunities() {
+            const res = await fetch(`http://127.0.0.1:8000/get-communities/?username=${username}`);
+            const data = await res.json();
+
+            const allContainer = document.getElementById("all-communities");
+            allContainer.innerHTML = "";
+            data.communities.forEach(c => {
+                const div = document.createElement("div");
+                div.className = "community";
+                div.innerHTML = `<h3>${c.name}</h3><p>${c.description}</p><button onclick="joinCommunity('${c.name}')">Join</button>`;
+                allContainer.appendChild(div);
+            });
+
+            const recContainer = document.getElementById("recommended-communities");
+            recContainer.innerHTML = "";
+            data.recommended.forEach(c => {
+                const div = document.createElement("div");
+                div.className = "community";
+                div.innerHTML = `<h3>${c.name}</h3><p>${c.description}</p><button onclick="joinCommunity('${c.name}')">Join</button>`;
+                recContainer.appendChild(div);
+            });
+        }
+
+        async function createCommunity() {
+            const name = document.getElementById("community-name").value;
+            const desc = document.getElementById("community-desc").value;
+
+            if (!name || !desc) {
+                alert("Please enter name and description");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("name", name);
+            formData.append("description", desc);
+            formData.append("creator", username);
+
+            const res = await fetch("http://127.0.0.1:8000/create-community/", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert("Community Created!");
+                document.getElementById("community-name").value = "";
+                document.getElementById("community-desc").value = "";
+                loadCommunities();
+            }
+        }
+
+        function joinCommunity(name) {
+            alert(`Joined ${name}!`);
+        }
+
+        function goHome() {
+            window.location.href = "index.html"; // Change to your actual home page file
+        }
+
+        loadCommunities();
+    </script>
+</body>
+</html>

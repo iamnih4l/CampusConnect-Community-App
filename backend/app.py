@@ -21,14 +21,16 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 import os
 
 # Add this at the top of your file with other directory definitions
 PROFILE_DIR = "profile_images"
 os.makedirs(PROFILE_DIR, exist_ok=True) 
+
 
 
 def get_db():
@@ -252,6 +254,8 @@ sample_images = [
     "https://picsum.photos/400/200?random=104",
     "https://picsum.photos/400/200?random=105",
 ]
+
+
 
 import random
 
@@ -558,3 +562,179 @@ async def chatbot_endpoint(req: ChatRequest):
         reply = handle_general(user_msg)
 
     return {"reply": reply}
+
+from fastapi import FastAPI, Depends, Form
+from sqlalchemy.orm import Session
+from database import SessionLocal, init_db
+from models import User, Community, Post, Comment
+
+init_db()
+
+# -------------------------------
+# Add Sample Communities
+# -------------------------------
+def add_sample_communities():
+    db = SessionLocal()
+    existing = db.query(Community).count()
+    if existing == 0:
+        samples = [
+            {"name": "Movie Lovers", "description": "Discuss latest movies and reviews", "creator": "Admin"},
+            {"name": "Study Prep", "description": "Share notes, resources, and prep tips", "creator": "Admin"},
+            {"name": "Fitness Freaks", "description": "Workout routines, diet tips, and motivation", "creator": "Admin"},
+            {"name": "Gaming Hub", "description": "Talk about games, streamers, and tournaments", "creator": "Admin"},
+            {"name": "Photography Club", "description": "Share photos and tips for photography enthusiasts", "creator": "Admin"}
+        ]
+        for s in samples:
+            community = Community(name=s["name"], description=s["description"], creator=s["creator"])
+            db.add(community)
+        db.commit()
+    db.close()
+
+add_sample_communities()
+
+
+@app.post("/create-community/")
+def create_community(
+    name: str = Form(...),
+    description: str = Form(...),
+    creator: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    community = Community(name=name, description=description, creator=creator)
+    db.add(community)
+    db.commit()
+    db.refresh(community)
+    return {"success": True, "community": {"id": community.id, "name": community.name}}
+
+@app.get("/get-communities/")
+def get_communities(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    interests = user.interests if user else ""
+    
+    communities = db.query(Community).all()
+    all_communities = [{"name": c.name, "description": c.description, "id": c.id} for c in communities]
+
+    # Recommend communities based on interests
+    recommended = recommend_communities(interests, all_communities) if interests else []
+
+    return {"communities": all_communities, "recommended": recommended}
+
+# -------------------------------
+# Post Endpoints
+# -------------------------------
+
+@app.post("/create-post/")
+def create_post(
+    community_id: int = Form(...),
+    username: str = Form(...),
+    content: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    post = Post(community_id=community_id, username=username, content=content)
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+    return {"success": True, "post": {"id": post.id, "content": post.content}}
+
+@app.get("/get-posts/")
+def get_posts(community_id: int, db: Session = Depends(get_db)):
+    posts = db.query(Post).filter(Post.community_id == community_id).all()
+    return [{"id": p.id, "username": p.username, "content": p.content, "likes": p.likes} for p in posts]
+
+# -------------------------------
+# Comment Endpoints
+# -------------------------------
+
+@app.post("/add-comment/")
+def add_comment(post_id: int = Form(...), username: str = Form(...), comment: str = Form(...), db: Session = Depends(get_db)):
+    c = Comment(post_id=post_id, username=username, comment=comment)
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return {"success": True, "comment": {"id": c.id, "comment": c.comment}}
+
+@app.get("/get-comments/")
+def get_comments(post_id: int, db: Session = Depends(get_db)):
+    comments = db.query(Comment).filter(Comment.post_id == post_id).all()
+    return [{"id": c.id, "username": c.username, "comment": c.comment} for c in comments]
+
+# -------------------------------
+# Community Recommender Logic
+# -------------------------------
+
+def recommend_communities(user_interests, all_communities):
+    if not user_interests:
+        return []
+
+    interests = [i.strip().lower() for i in user_interests.split(",")]
+    recommendations = []
+
+    for community in all_communities:
+        text = (community['name'] + " " + community.get('description', "")).lower()
+        score = sum(1 for interest in interests if interest in text)
+        if score > 0:
+            recommendations.append((score, community))
+
+    recommendations.sort(reverse=True, key=lambda x: x[0])
+    return [c for score, c in recommendations]
+
+@app.get("/profile/{username}")
+def get_profile(username: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if not user:
+        return JSONResponse({"success": False, "message": "User not found"}, status_code=404)
+
+    return {
+        "success": True,
+        "username": user.username,
+        "profile_pic": user.profile_pic,
+        "interests": user.interests or "",
+        "skills": user.skills if hasattr(user, "skills") else "",
+        "achievements": user.achievements if hasattr(user, "achievements") else ""
+    }
+
+# --------------------------
+# Update user profile
+# --------------------------
+@app.post("/profile/update/")
+async def update_profile(
+    username: str = Form(...),
+    interests: str = Form(None),
+    skills: str = Form(None),
+    achievements: str = Form(None),
+    profile_image: UploadFile = File(None),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if not user:
+        return {"success": False, "message": "User not found"}
+
+    if interests:
+        user.interests = interests
+    if skills:
+        user.skills = skills
+    if achievements:
+        user.achievements = achievements
+
+    if profile_image:
+        ext = os.path.splitext(profile_image.filename)[1]
+        filename = f"{uuid.uuid4()}{ext}"
+        file_path = os.path.join(PROFILE_DIR, filename)
+        with open(file_path, "wb") as f:
+            f.write(await profile_image.read())
+        user.profile_pic = file_path
+
+    db.commit()
+    db.refresh(user)
+
+    return {"success": True, "message": "Profile updated successfully"}
+
+# --------------------------
+# Serve profile images
+# --------------------------
+@app.get("/profile-image/{filename}")
+def profile_image(filename: str):
+    file_path = os.path.join(PROFILE_DIR, filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return JSONResponse({"success": False, "message": "Image not found"}, status_code=404)
