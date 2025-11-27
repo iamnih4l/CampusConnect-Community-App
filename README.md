@@ -5,7 +5,7 @@
 
 ![Banner](https://via.placeholder.com/1200x250?text=Campus+Connect+%7C+AI+Community+Platform)
 
-[![Made with AI](https://img.shields.io/badge/Made%20with-AI-blueviolet?style=flat-square)]()
+
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square)]()
 [![React](https://img.shields.io/badge/Frontend-React-61DAFB?style=flat-square&logo=react&logoColor=white)]()
 [![Python](https://img.shields.io/badge/Python-3.10+-yellow?style=flat-square&logo=python)]()
